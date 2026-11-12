@@ -21,7 +21,7 @@ Tests named `live_*` need a running Roblox and the network: mark them `#[ignore]
 
 ## Safety (never skip)
 
-- Never launch `handys-esp.exe` unless the user says so.
+- The user allows starting `handys-esp.exe` (and its `--status` mode) without asking.
 
 ## Conventions
 

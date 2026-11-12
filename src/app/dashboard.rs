@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
+use handy_sdk::app::self_update::{UpdateStatus, badge_text};
 use handy_sdk::app::updater_thread::{Updater, status_name, status_tone};
 use handy_sdk::input::key::vk_name;
 use handy_sdk::ui::dashboard::{Dashboard, Spec, TreeItem, check, note, number, page, section, text, tree, value};
@@ -35,6 +36,8 @@ pub struct DashboardDeps {
     pub settings: Arc<SettingsStore>,
     pub targets: Arc<TargetStore>,
     pub config_ini: PathBuf,
+    /// what the startup self-update did; None when it did not run
+    pub update: Option<UpdateStatus>,
 }
 
 fn write_time(p: &Path) -> Option<SystemTime> {
@@ -63,7 +66,7 @@ pub fn run_dashboard(deps: &DashboardDeps, show: SHOW_WINDOW_CMD) -> i32 {
 
     let d = Dashboard::new(Spec {
         title: "handy's esp".into(),
-        badge: concat!("v", env!("CARGO_PKG_VERSION")).into(),
+        badge: badge_text(env!("CARGO_PKG_VERSION"), deps.update),
         window_class: DASHBOARD_CLASS.into(),
         rows: vec![
             page("ESP"),

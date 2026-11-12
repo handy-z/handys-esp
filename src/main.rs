@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use handy_sdk::app::args::arg_value;
-use handy_sdk::app::self_update::update_on_startup;
+use handy_sdk::app::self_update::{UpdateStatus, update_on_startup};
 use handy_sdk::app::single_instance::SingleInstance;
 use handy_sdk::app::status_snapshot::{snapshot_allowed, status_line, wait_for};
 use handy_sdk::app::updater_thread::{AppStatus, Updater, production_smoke_test};
@@ -69,7 +69,11 @@ fn status_snapshot(out: &Path) -> i32 {
         Duration::from_secs(15),
         Duration::from_millis(50),
     );
-    let mut f = format!("status: {}\n", status_line(&updater));
+    let mut f = format!(
+        "version: {}\nstatus: {}\n",
+        env!("CARGO_PKG_VERSION"),
+        status_line(&updater)
+    );
     if let Some(scan) = &scan {
         let _ = write!(
             f,
@@ -110,10 +114,9 @@ fn run() -> i32 {
 
     // Only builds made by release.cmd update themselves (dev builds and build.cmd never do). Skipped while another
     // copy runs: its exe is in use and it would be replaced under it.
-    if option_env!("HANDY_RELEASE").is_some()
-        && !SingleInstance::is_running(MUTEX)
-        && update_on_startup("handy-z", "handys-esp", env!("CARGO_PKG_VERSION"))
-    {
+    let update = (option_env!("HANDY_RELEASE").is_some() && !SingleInstance::is_running(MUTEX))
+        .then(|| update_on_startup("handy-z", "handys-esp", env!("CARGO_PKG_VERSION")));
+    if update == Some(UpdateStatus::Restarting) {
         return 0; // the new version is starting; exit before anything else runs
     }
 
@@ -144,6 +147,7 @@ fn run() -> i32 {
         settings: store.clone(),
         targets,
         config_ini: ini.clone(),
+        update,
     };
     // SW_SHOWDEFAULT: the show command the process was started with
     let rc = run_dashboard(&deps, SW_SHOWDEFAULT);

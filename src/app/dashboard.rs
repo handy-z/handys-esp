@@ -63,6 +63,7 @@ pub fn run_dashboard(deps: &DashboardDeps, show: SHOW_WINDOW_CMD) -> i32 {
 
     let d = Dashboard::new(Spec {
         title: "handy's esp".into(),
+        badge: concat!("v", env!("CARGO_PKG_VERSION")).into(),
         window_class: DASHBOARD_CLASS.into(),
         rows: vec![
             page("ESP"),

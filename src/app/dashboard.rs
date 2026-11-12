@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
-use handy_sdk::app::self_update::{UpdateStatus, badge_text};
+use handy_sdk::app::self_update::SelfUpdate;
 use handy_sdk::app::updater_thread::{Updater, status_name, status_tone};
 use handy_sdk::input::key::vk_name;
 use handy_sdk::ui::dashboard::{Dashboard, Spec, TreeItem, check, note, number, page, section, text, tree, value};
@@ -36,8 +36,7 @@ pub struct DashboardDeps {
     pub settings: Arc<SettingsStore>,
     pub targets: Arc<TargetStore>,
     pub config_ini: PathBuf,
-    /// what the startup self-update did; None when it did not run
-    pub update: Option<UpdateStatus>,
+    pub update: Arc<SelfUpdate>,
 }
 
 fn write_time(p: &Path) -> Option<SystemTime> {
@@ -66,7 +65,7 @@ pub fn run_dashboard(deps: &DashboardDeps, show: SHOW_WINDOW_CMD) -> i32 {
 
     let d = Dashboard::new(Spec {
         title: "handy's esp".into(),
-        badge: badge_text(env!("CARGO_PKG_VERSION"), deps.update),
+        badge: deps.update.badge().text,
         window_class: DASHBOARD_CLASS.into(),
         rows: vec![
             page("ESP"),
@@ -93,6 +92,8 @@ pub fn run_dashboard(deps: &DashboardDeps, show: SHOW_WINDOW_CMD) -> i32 {
     pill.create();
 
     d.on_tick(|ui| {
+        let b = deps.update.badge();
+        ui.set_badge(&b.text, b.tone, &b.tip);
         let now = Instant::now();
         if now >= next_ini_check.get() {
             // config.ini may be edited by hand (classes= has no UI)
@@ -139,6 +140,13 @@ pub fn run_dashboard(deps: &DashboardDeps, show: SHOW_WINDOW_CMD) -> i32 {
             };
             let items: Vec<TreeItem> = picks.borrow().iter().map(|p| p.item.clone()).collect();
             ui.set_tree(ID_PICK, &items);
+        }
+    });
+    d.on_badge_click(|ui| {
+        if deps.update.request_restart() {
+            ui.close();
+        } else {
+            handy_sdk::ui::open_url(&deps.update.release_url());
         }
     });
     d.on_check(|_, id, checked| {
